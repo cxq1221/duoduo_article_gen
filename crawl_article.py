@@ -1,43 +1,75 @@
-from typing import Optional, Dict, Any
-from datetime import datetime
-import os
-
-from techcrunch_rss_direct import crawl_techcrunch_rss_direct
-
-
-OUTPUT_DIR = "output"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-
-def saveMarkdown(result: Optional[Dict[str, Any]]) -> None:
-    """根据抓取结果写入 markdown 文件。"""
-    if not result:
-        print("⚠️ 没有文章结果可保存")
-        return
-
-    title = result["title"]
-    url = result["url"]
-    content = result["content"]
-    image_url = result.get("image_url")
-
-    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    filename = f"{OUTPUT_DIR}/{ts}.md"
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(f"# {title}\n\n")
-        f.write(f"> 原文：{url}\n\n")
-        if image_url:
-            f.write(f"![cover]({image_url})\n\n")
-        f.write(content)
-    print(f"✅ Saved: {filename}")
+from web_extractor_rss import crawl_rss_direct
+from qbitai_list_direct import crawl_qbitai_list_direct
+from wecom_bot import send_wecom_markdown
+from utils import save_markdown
+from llm_summarizer import summarize_article
+from image_fetcher import fetch_images_for_article
+from image_inserter import insert_images_smart, insert_images_to_content
+from config import ENABLE_IMAGE_INSERTION, IMAGE_COUNT, USE_AI_IMAGE_GENERATION, USE_SMART_INSERTION
 
 
 def main():
-    feed_url = "https://techcrunch.com/feed/"
-    tags = ["ai", "machine learning", "deep learning"]
+    # 选择抓取源：techcrunch 或 qbitai
+    source = "techcrunch"
+    # source = "qbitai"
+    if source == "techcrunch":
+        feed_url = "https://techcrunch.com/feed/"
+        tags = ["ai", "machine learning", "deep learning"]
+        result = crawl_rss_direct(tags, feed_url)
+    elif source == "qbitai":
+        list_url = "https://www.qbitai.com/category/%e8%b5%84%e8%ae%af"
+        tags = ["AI", "大模型", "算力", "视频", "OpenAI"]
+        result = crawl_qbitai_list_direct(tags, list_url)
+        if not result:
+            print("❌ QbitAI 没有找到符合条件的文章")
+            return
+    else:
+        raise ValueError(f"未知的抓取源: {source}")
+    
+    if not result:
+        print("❌ 没有找到符合条件的文章")
+        return
+    
+    # 使用大模型总结文章内容
+    result["content"] = summarize_article(result["title"], result["content"])
+    
+    # 自动获取并插入图片
+    if ENABLE_IMAGE_INSERTION:
+        print(f"\n🖼️ 开始获取图片（数量: {IMAGE_COUNT}）...")
+        try:
+            image_urls = fetch_images_for_article(
+                result["title"], 
+                result["content"], 
+                count=IMAGE_COUNT,
+                use_ai_generation=USE_AI_IMAGE_GENERATION
+            )
+            
+            if image_urls:
+                print(f"  ✅ 成功获取 {len(image_urls)} 张图片")
+                # 插入图片到正文
+                if USE_SMART_INSERTION:
+                    result["content"] = insert_images_smart(
+                        result["content"], 
+                        image_urls, 
+                        result["title"]
+                    )
+                else:
+                    result["content"] = insert_images_to_content(
+                        result["content"], 
+                        image_urls
+                    )
+                print(f"  ✅ 图片已插入到正文")
+            else:
+                print(f"  ⚠️ 未能获取到图片，继续保存文章")
+        except Exception as e:
+            print(f"  ⚠️ 图片获取/插入过程出错: {e}，继续保存文章")
+    
+    # 保存到本地
+    save_markdown(result)
+    
+    # 发到微信群（可选）
+    # send_wecom_markdown(result["content"])
 
-    result = crawl_techcrunch_rss_direct(tags, feed_url)
-    saveMarkdown(result)
-    print(result)
 
 if __name__ == "__main__":
     main()

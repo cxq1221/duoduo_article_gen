@@ -4,9 +4,11 @@ import re
 
 import feedparser
 import requests
-import trafilatura
 
-from config import MODEL, TIME_WINDOW_HOURS, MIN_CONTENT_LENGTH, client
+from config import TIME_WINDOW_HOURS, MIN_CONTENT_LENGTH
+from web_extractor_crawl import extract_article_content, fetch_html
+from utils import match_tags
+import html
 
 
 def fetch_feed(feed_url: str):
@@ -50,23 +52,16 @@ def is_recent(entry):
     return is_recent_flag
 
 
-def extract_article(url: str) -> Optional[str]:
-    print(f"  🔍 正在提取文章内容: {url}")
-    try:
-        html = requests.get(url, timeout=15).text
-        content = trafilatura.extract(html)
-        if content:
-            print(f"  ✅ 提取成功，内容长度: {len(content)} 字符")
-        else:
-            print("  ⚠️ 提取失败，未获取到内容")
-        return content
-    except Exception as e:
-        print(f"  ❌ 提取出错: {e}")
-        return None
-
-
 def _extract_image_from_entry(entry):
     """从 RSS entry 中尽量提取图片 URL。"""
+    print(f"  🖼️ 正在从 RSS entry 中提取图片 URL: {entry}")
+    print(f"  🖼️  entry.media_content: {entry.media_content}")
+    print(f"  🖼️  entry.media_thumbnail: {entry.media_thumbnail}")
+    print(f"  🖼️  entry.summary: {entry.summary}")
+    print(f"  🖼️  entry.description: {entry.description}")
+    print(f"  🖼️  entry.content: {entry.content}")
+    print(f"  🖼️  entry.content[0].get('value'): {entry.content[0].get('value')}")
+    print(f"  🖼️  entry.content[0].get('type'): {entry.content[0].get('type')}")
     image_url = None
 
     if hasattr(entry, "media_content") and entry.media_content:
@@ -78,19 +73,8 @@ def _extract_image_from_entry(entry):
         m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', html, re.IGNORECASE)
         if m:
             image_url = m.group(1)
-
+    print(f"  🖼️  image_url: {image_url}")
     return image_url
-
-
-def _fetch_html(url: str) -> str:
-    print(f"  🌐 正在获取 HTML: {url}")
-    try:
-        resp = requests.get(url, timeout=15)
-        resp.raise_for_status()
-        return resp.text
-    except Exception as e:
-        print(f"  ❌ 获取 HTML 失败: {e}")
-        return ""
 
 
 def _extract_image_from_html(html: str) -> Optional[str]:
@@ -126,7 +110,8 @@ def get_image_url(entry, url: str) -> Optional[str]:
         print(f"  ⚠️ 从 RSS 提取图片失败: {e}")
 
     if not image_url:
-        html = _fetch_html(url)
+        print(f"  🌐 正在获取 HTML: {url}")
+        html = fetch_html(url)
         image_url = _extract_image_from_html(html)
 
     if image_url:
@@ -137,60 +122,45 @@ def get_image_url(entry, url: str) -> Optional[str]:
     return image_url
 
 
-def summarize(title: str, content: str) -> str:
-    print(f"  🤖 正在使用 {MODEL} 生成摘要...")
-    prompt = f"""
-你是一名科技媒体编辑。
-
-请将下面的 TechCrunch 新闻整理成一篇中文科技文章：
-- 不要逐句翻译
-- 保留核心事实
-- 适当补充背景
-- 说明这条新闻为什么重要
-- 400~600 字
-- 风格：理性、专业、偏技术
-
-标题：{title}
-
-正文：
-{content}
-"""
-    try:
-        resp = client.chat.completions.create(
-            model=MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.4,
-        )
-        summary = resp.choices[0].message.content.strip()
-        print(f"  ✅ 摘要生成成功，长度: {len(summary)} 字符")
-        return summary
-    except Exception as e:
-        print(f"  ❌ 摘要生成失败: {e}")
-        raise
-
-
-def _is_related(entry, tags: List[str]) -> bool:
-    """根据传入的关键词列表判断文章是否相关。"""
-    title = (getattr(entry, "title", "") or "").lower()
-    summary = (getattr(entry, "summary", "") or "").lower()
-    text = f"{title}\n{summary}"
-
-    for kw in tags:
-        if kw.lower() in text:
-            print(f"  ✅ 判定为目标领域相关（命中关键词: {kw}）")
-            return True
-
-    print("  ⛔ 非目标标签相关文章，跳过")
-    return False
+def _extract_content_from_entry(entry) -> Optional[str]:
+    """
+    从 RSS entry 中提取文章内容。
+    优先使用 content 字段，其次使用 summary/description 字段。
+    """
+    # 尝试获取 content（某些 RSS 包含完整内容）
+    content = None
+    if hasattr(entry, "content") and entry.content:
+        # content 可能是列表，取第一个
+        if isinstance(entry.content, list) and entry.content:
+            content = entry.content[0].get("value", "")
+        elif isinstance(entry.content, str):
+            content = entry.content
+    
+    # 如果没有 content，尝试 summary 或 description
+    if not content:
+        content = getattr(entry, "summary", "") or getattr(entry, "description", "") or ""
+    
+    if not content:
+        return None
+    
+    # 清理 HTML 标签（如果内容是 HTML）
+    # 简单去除 HTML 标签
+    content = re.sub(r"<[^>]+>", "", content)
+    # 解码 HTML 实体
+    content = html.unescape(content)
+    # 清理多余空白
+    content = re.sub(r"\s+", " ", content).strip()
+    
+    return content if content else None
 
 
-def crawl_techcrunch_rss_direct(
+def crawl_rss_direct(
     article_tags: List[str],
     feed_url: str,
 ) -> Optional[Dict[str, Any]]:
     """
-    使用 TechCrunch RSS + HTML + LLM 流程，实现最简单的抓取策略：
-    - 遍历 RSS 中的文章
+    通用的 RSS feed 抓取策略（适用于所有标准 RSS）：
+    - 遍历 RSS feed 中的文章
     - 用调用方给出的 article_tags 做粗过滤
     - 用 is_recent 做时间过滤
     - 抓正文、抓图片、生成摘要
@@ -204,7 +174,9 @@ def crawl_techcrunch_rss_direct(
 
         print(f"\n检查文章: {title}")
 
-        if not _is_related(entry, article_tags):
+        title_text = getattr(entry, "title", "") or ""
+        summary_text = getattr(entry, "summary", "") or ""
+        if not match_tags(title_text, article_tags, summary=summary_text):
             continue
 
         if not is_recent(entry):
@@ -212,18 +184,23 @@ def crawl_techcrunch_rss_direct(
             continue
 
         image_url = get_image_url(entry, url)
-        content = extract_article(url)
+        
+        # 优先从 RSS entry 中提取内容，如果不够再通过 crawl 获取
+        content = _extract_content_from_entry(entry)
+        if not content or len(content) < MIN_CONTENT_LENGTH:
+            print(f"  📄 RSS 内容不足（{len(content) if content else 0} 字符），通过 crawl 获取完整正文...")
+            content = extract_article_content(url)
+        
         if not content or len(content) < MIN_CONTENT_LENGTH:
             print(
                 f"  ⚠️ 内容过短（{len(content) if content else 0} 字符 < {MIN_CONTENT_LENGTH}），跳过"
             )
             continue
 
-        summary = summarize(title, content)
-
+        # 返回原始内容，不进行总结（总结由调用方负责）
         return {
             "title": title,
-            "content": summary,
+            "content": content,
             "image_url": image_url,
             "url": url,
         }
