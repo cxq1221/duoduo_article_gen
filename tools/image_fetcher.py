@@ -4,6 +4,11 @@
 """
 import requests
 from typing import Optional, List
+import sys
+import os
+
+# 添加项目根目录到路径，以便导入 config
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
     client, MODEL,
     UNSPLASH_ACCESS_KEY, PEXELS_API_KEY, PIXABAY_API_KEY, HUGGINGFACE_API_KEY,

@@ -1,5 +1,9 @@
 from typing import Optional
+import sys
+import os
 
+# 添加项目根目录到路径，以便导入 config
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MODEL, client
 
 

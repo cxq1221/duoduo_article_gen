@@ -4,14 +4,18 @@ import re
 
 import feedparser
 import requests
+import sys
+import os
 
+# 添加项目根目录到路径，以便导入 config
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import TIME_WINDOW_HOURS, MIN_CONTENT_LENGTH
-from web_extractor_crawl import extract_article_content, fetch_html
-from utils import match_tags
+from .web_extractor_crawl import extract_article_content, fetch_html
+from tools import match_tags
 import html
 
 
-def fetch_feed(feed_url: str):
+def _fetch_feed(feed_url: str):
     print(f"📡 正在获取 RSS feed: {feed_url}")
     try:
         response = requests.get(feed_url, timeout=15, verify=True)
@@ -54,14 +58,7 @@ def is_recent(entry):
 
 def _extract_image_from_entry(entry):
     """从 RSS entry 中尽量提取图片 URL。"""
-    print(f"  🖼️ 正在从 RSS entry 中提取图片 URL: {entry}")
-    print(f"  🖼️  entry.media_content: {entry.media_content}")
-    print(f"  🖼️  entry.media_thumbnail: {entry.media_thumbnail}")
-    print(f"  🖼️  entry.summary: {entry.summary}")
-    print(f"  🖼️  entry.description: {entry.description}")
-    print(f"  🖼️  entry.content: {entry.content}")
-    print(f"  🖼️  entry.content[0].get('value'): {entry.content[0].get('value')}")
-    print(f"  🖼️  entry.content[0].get('type'): {entry.content[0].get('type')}")
+    print(f"  🖼️ 正在从 RSS entry 中提取图片 URL")
     image_url = None
 
     if hasattr(entry, "media_content") and entry.media_content:
@@ -166,7 +163,7 @@ def crawl_rss_direct(
     - 抓正文、抓图片、生成摘要
     - 返回第一篇符合条件的文章摘要结果
     """
-    feed = fetch_feed(feed_url)
+    feed = _fetch_feed(feed_url)
 
     for entry in feed.entries:
         title = getattr(entry, "title", "Unknown")
@@ -207,5 +204,4 @@ def crawl_rss_direct(
 
     print("❗ 未找到符合条件的文章")
     return None
-
 

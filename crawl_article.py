@@ -1,17 +1,19 @@
-from web_extractor_rss import crawl_rss_direct
-from qbitai_list_direct import crawl_qbitai_list_direct
-from wecom_bot import send_wecom_markdown
-from utils import save_markdown
-from llm_summarizer import summarize_article
-from image_fetcher import fetch_images_for_article
-from image_inserter import insert_images_smart, insert_images_to_content
+from extractors import crawl_rss_direct, crawl_list_page
+from tools import (
+    send_wecom_markdown,
+    save_markdown,
+    summarize_article,
+    fetch_images_for_article,
+    insert_images_smart,
+    insert_images_to_content,
+)
 from config import ENABLE_IMAGE_INSERTION, IMAGE_COUNT, USE_AI_IMAGE_GENERATION, USE_SMART_INSERTION
 
 
 def main():
     # 选择抓取源：techcrunch 或 qbitai
-    source = "techcrunch"
-    # source = "qbitai"
+    # source = "techcrunch"
+    source = "qbitai"
     if source == "techcrunch":
         feed_url = "https://techcrunch.com/feed/"
         tags = ["ai", "machine learning", "deep learning"]
@@ -19,9 +21,9 @@ def main():
     elif source == "qbitai":
         list_url = "https://www.qbitai.com/category/%e8%b5%84%e8%ae%af"
         tags = ["AI", "大模型", "算力", "视频", "OpenAI"]
-        result = crawl_qbitai_list_direct(tags, list_url)
+        result = crawl_list_page(tags, list_url)
         if not result:
-            print("❌ QbitAI 没有找到符合条件的文章")
+            print("❌ 没有找到符合条件的文章")
             return
     else:
         raise ValueError(f"未知的抓取源: {source}")
