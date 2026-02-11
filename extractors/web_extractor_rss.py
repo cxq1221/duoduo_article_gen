@@ -133,13 +133,18 @@ def _extract_content_from_entry(entry) -> Optional[str]:
         elif isinstance(entry.content, str):
             content = entry.content
     
+        #提取summary字段
+    summary = getattr(entry, "summary", "") or ""
+
     # 如果没有 content，尝试 summary 或 description
     if not content:
-        content = getattr(entry, "summary", "") or getattr(entry, "description", "") or ""
+        content = summary or getattr(entry, "description", "") or ""
     
     if not content:
         return None
     
+
+
     # 清理 HTML 标签（如果内容是 HTML）
     # 简单去除 HTML 标签
     content = re.sub(r"<[^>]+>", "", content)
@@ -195,9 +200,17 @@ def crawl_rss_direct(
             continue
 
         # 返回原始内容，不进行总结（总结由调用方负责）
+        summary = (getattr(entry, "summary", "") or "").strip()
+        # 清理 HTML 标签
+        if summary:
+            summary = re.sub(r"<[^>]+>", "", summary)
+            summary = html.unescape(summary)
+            summary = re.sub(r"\s+", " ", summary).strip()
+
         return {
             "title": title,
             "content": content,
+            "summary": summary or "",
             "image_url": image_url,
             "url": url,
         }

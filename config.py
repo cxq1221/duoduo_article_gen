@@ -23,6 +23,11 @@ PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "")
 PIXABAY_API_KEY = '51527356-5568fca9ae6514e7636767a39'
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY", "")
 
+# 飞书多维表格配置
+FEISHU_APP_ID = "cli_a9004f56913adcd1"
+FEISHU_APP_SECRET = "pEGCRnCvecluMFJVc5B4PxXuNGceqM4m"
+FEISHU_BITABLE_URL = "https://my.feishu.cn/wiki/K4mHwDDzGiraKPkGmsdc862GnLh?table=tblyZsHbzzlX2Pxm&view=vewhHTRDLN"
+
 client = OpenAI(
     api_key="sk-b436939915c14bc1b5bbdedf8d803c7c",
     base_url="https://api.deepseek.com",

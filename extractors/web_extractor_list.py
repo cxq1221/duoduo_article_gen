@@ -53,9 +53,13 @@ def crawl_list_page(
             continue
 
         # 返回原始内容，不进行总结（总结由调用方负责）
+        # 取正文前 200 字符作为简介
+        summary = content[:200].strip() if content else ""
+
         return {
             "title": title,
             "content": content,
+            "summary": summary,
             "image_url": None,  # 列表页抓取暂不支持图片提取
             "url": url,
         }

@@ -58,49 +58,34 @@ def extract_article_content(url: str) -> Optional[str]:
 
 def extract_links_from_page(url: str, max_links: int = 10) -> List[Dict[str, str]]:
     """
-    使用 crawl4ai 从列表页提取文章链接和标题（替代 BeautifulSoup）。
+    使用 crawl4ai 内置的链接提取从列表页获取文章链接和标题。
     返回 [{"url": "...", "title": "..."}, ...]
     """
     print(f"  📋 正在使用 crawl4ai 提取链接: {url}")
     try:
         result = asyncio.run(_fetch_with_crawl4ai(url))
-        html = getattr(result, "html", "") or ""
-        
-        if not html:
-            return []
-        
-        # 使用正则表达式从 HTML 中提取链接和标题
-        # 匹配常见的文章链接模式：<a href="..." ...>标题</a>
+        links = getattr(result, "links", {})
+        internal = links.get("internal", [])
+
         candidates: List[Dict[str, str]] = []
-        seen_urls = set()
-        
-        # 匹配 <a> 标签内的链接和文本
-        pattern = r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>([^<]+)</a>'
-        matches = re.finditer(pattern, html, re.IGNORECASE)
-        
-        for match in matches:
-            href = match.group(1)
-            title = match.group(2).strip()
-            
-            # 过滤掉无效链接
+        seen_urls: set = set()
+
+        for link in internal:
+            href = link.get("href", "")
+            title = link.get("text", "").strip()
+
             if not href or not title or len(title) < 5:
                 continue
-            
-            # 处理相对链接
-            if href.startswith("/"):
-                href = f"{url.split('/')[0]}//{url.split('/')[2]}{href}"
-            elif not href.startswith("http"):
-                continue
-            
+
             # 去重
             if href in seen_urls:
                 continue
             seen_urls.add(href)
-            
+
             candidates.append({"url": href, "title": title})
             if len(candidates) >= max_links:
                 break
-        
+
         print(f"  ✅ 提取到 {len(candidates)} 个链接")
         return candidates
     except Exception as e:
