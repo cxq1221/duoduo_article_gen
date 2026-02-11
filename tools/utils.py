@@ -1,10 +1,25 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Set
 from datetime import datetime
 import os
 
 
 OUTPUT_DIR = "output"
+PROCESSED_FILE = "processed_urls.txt"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+def load_processed_urls() -> Set[str]:
+    """加载已处理的文章 URL 集合"""
+    if not os.path.exists(PROCESSED_FILE):
+        return set()
+    with open(PROCESSED_FILE, "r", encoding="utf-8") as f:
+        return {line.strip() for line in f if line.strip()}
+
+
+def save_processed_url(url: str) -> None:
+    """将 URL 追加到已处理记录"""
+    with open(PROCESSED_FILE, "a", encoding="utf-8") as f:
+        f.write(url + "\n")
 
 
 def match_tags(

@@ -7,7 +7,7 @@ from .image_inserter import insert_images_smart, insert_images_to_content
 from .llm_summarizer import summarize_article
 from .wecom_bot import send_wecom_markdown
 from .feishu_bitable import push_to_feishu
-from .utils import save_markdown, match_tags
+from .utils import save_markdown, match_tags, load_processed_urls, save_processed_url
 
 __all__ = [
     "fetch_images_for_article",
@@ -18,5 +18,7 @@ __all__ = [
     "push_to_feishu",
     "save_markdown",
     "match_tags",
+    "load_processed_urls",
+    "save_processed_url",
 ]
 

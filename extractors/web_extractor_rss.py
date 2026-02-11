@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import TIME_WINDOW_HOURS, MIN_CONTENT_LENGTH
 from .web_extractor_crawl import extract_article_content, fetch_html
-from tools import match_tags
+from tools import match_tags, load_processed_urls
 import html
 
 
@@ -169,12 +169,17 @@ def crawl_rss_direct(
     - 返回第一篇符合条件的文章摘要结果
     """
     feed = _fetch_feed(feed_url)
+    processed = load_processed_urls()
 
     for entry in feed.entries:
         title = getattr(entry, "title", "Unknown")
         url = getattr(entry, "link", "")
 
         print(f"\n检查文章: {title}")
+
+        if url in processed:
+            print("  ⏭️ 已处理过，跳过")
+            continue
 
         title_text = getattr(entry, "title", "") or ""
         summary_text = getattr(entry, "summary", "") or ""

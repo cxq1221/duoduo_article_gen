@@ -7,7 +7,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import MIN_CONTENT_LENGTH
 from .web_extractor_crawl import extract_article_content, extract_links_from_page
-from tools import match_tags
+from tools import match_tags, load_processed_urls
 
 
 def crawl_list_page(
@@ -37,10 +37,16 @@ def crawl_list_page(
         print("❌ 未提取到任何文章链接")
         return None
 
+    processed = load_processed_urls()
+
     for c in candidates:
         title = c["title"]
         url = c["url"]
         print(f"\n检查文章: {title} ({url})")
+
+        if url in processed:
+            print("  ⏭️ 已处理过，跳过")
+            continue
 
         if not match_tags(title, article_tags):
             continue

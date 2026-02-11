@@ -8,6 +8,7 @@ from tools import (
     insert_images_smart,
     insert_images_to_content,
     push_to_feishu,
+    save_processed_url,
 )
 from config import ENABLE_IMAGE_INSERTION, IMAGE_COUNT, USE_AI_IMAGE_GENERATION, USE_SMART_INSERTION
 
@@ -63,11 +64,11 @@ def crawl_article(source="qbitai"):
     """抓取文章并用大模型总结"""
     if source == "techcrunch":
         feed_url = "https://techcrunch.com/feed/"
-        tags = ["ai", "machine learning", "deep learning"]
+        tags = ["ai", "machine learning", "deep learning","LLM","AI Agent","AI","大模型","Agent","视频","OpenAI"]
         result = crawl_rss_direct(tags, feed_url)
     elif source == "qbitai":
         list_url = "https://www.qbitai.com/category/%e8%b5%84%e8%ae%af"
-        tags = ["AI", "大模型", "算力", "视频", "OpenAI"]
+        tags = ["AI", "大模型", "算力", "视频", "OpenAI","AI Agent","Agent","LLM"]
         result = crawl_list_page(tags, list_url)
     else:
         raise ValueError(f"未知的抓取源: {source}")
@@ -90,6 +91,7 @@ def process_and_publish(source="qbitai", send_wecom=False):
     extract_title_and_cover(result)
     save_markdown(result)
     push_to_feishu(result)
+    save_processed_url(result["url"])
 
     if send_wecom:
         send_wecom_markdown(result["content"])
